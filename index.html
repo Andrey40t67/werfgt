@@ -2,131 +2,131 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>НИЧТО</title>
+    <title>СМОТРИ</title>
     <style>
         body, html {
             margin: 0; padding: 0;
             width: 100%; height: 100%;
-            background: #000;
             overflow: hidden;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #000;
         }
         #container {
             width: 100%; height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
+            position: relative;
+        }
+        video, canvas {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scaleX(-1);
+            max-width: 100%;
+            max-height: 100%;
         }
         #prompt {
-            font-size: 2vw;
-            color: #444;
-            border: 1px solid #222;
-            padding: 2rem;
+            color: #555;
+            font-size: 2rem;
+            font-family: monospace;
             cursor: pointer;
-            transition: all 0.3s;
+            z-index: 10;
         }
-        #prompt:hover {
-            color: #666;
-            border-color: #444;
-            background: #111;
-        }
-        #mirror {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* Зеркальное отражение */
-            display: none;
-            z-index: 1;
-        }
-        #overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 10vw;
-            font-weight: bold;
+        #loading {
             color: #fff;
-            background: radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%,rgba(0,0,0,0.9) 100%);
-            text-shadow: 0 0 20px #000, 0 0 30px #000;
-            opacity: 0;
-            transition: opacity 5s;
+            font-size: 3rem;
+            font-family: monospace;
+            display: none;
+            z-index: 5;
         }
     </style>
 </head>
 <body>
-
     <div id="container">
-        <div id="prompt">ПОСМОТРИ НА ЭТУ ХУЙНЮ</div>
+        <div id="prompt">НАЖМИ, ЕСЛИ НЕ ГАНДОН</div>
+        <div id="loading">ЗАГРУЗКА МОДЕЛЕЙ...</div>
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
     </div>
 
-    <video id="mirror" autoplay playsinline></video>
-    <div id="overlay"></div>
-
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
         const promptEl = document.getElementById('prompt');
-        const mirrorEl = document.getElementById('mirror');
-        const overlayEl = document.getElementById('overlay');
-        const containerEl = document.getElementById('container');
+        const loadingEl = document.getElementById('loading');
+        let modelsLoaded = false;
 
-        const WORDS = ["НИЧТО", "ПАРАША", "СКУЧНО", "ГОВНО", "ЭТО ТЫ?", "СМОТРИ"];
+        async function loadModels() {
+            // Путь к моделям. Они нужны для работы библиотеки.
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+            loadingEl.style.display = 'block';
+            promptEl.style.display = 'none';
 
-        async function startExperience() {
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+            ]);
+            modelsLoaded = true;
+            loadingEl.style.display = 'none';
+        }
+
+        async function startVideo() {
             try {
-                // Запрос на доступ к камере
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                
-                // Убираем промпт и показываем зеркало
-                containerEl.style.display = 'none';
-                mirrorEl.style.display = 'block';
-                mirrorEl.srcObject = stream;
-
-                // Запускаем шепот
-                speak();
-
-                // Показываем текст
-                showText();
-
+                const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                video.srcObject = stream;
             } catch (err) {
-                // Если пользователь отказал
-                promptEl.textContent = "ТЫ БОИШЬСЯ. И ПРАВИЛЬНО.";
+                loadingEl.textContent = "КАМЕРА НЕ НАЙДЕНА ИЛИ ЗАПРЕЩЕНА";
             }
         }
-        
-        function speak() {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance();
-                utterance.lang = 'ru-RU';
-                utterance.rate = 0.4; // Медленно
-                utterance.pitch = 0.2; // Низко
-                utterance.volume = 0.7; // Не слишком громко, как шепот
+
+        video.addEventListener('play', () => {
+            // Создаем холст того же размера, что и видео
+            const displaySize = { width: video.videoWidth, height: video.videoHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            // Запускаем основной цикл
+            setInterval(async () => {
+                // Ищем лицо и его "запчасти"
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
                 
-                setInterval(() => {
-                    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-                    utterance.text = word;
-                    window.speechSynthesis.speak(utterance);
-                }, 4000); // Каждые 4 секунды
+                // Очищаем холст
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                if (resizedDetections && resizedDetections.length > 0) {
+                    resizedDetections.forEach(detection => {
+                        const landmarks = detection.landmarks;
+                        
+                        // Получаем контуры глаз
+                        const leftEye = landmarks.getLeftEye();
+                        const rightEye = landmarks.getRightEye();
+
+                        // Рисуем черные дыры вместо них
+                        drawVoid(leftEye);
+                        drawVoid(rightEye);
+                    });
+                }
+            }, 100); // Повторяем 10 раз в секунду
+        });
+
+        function drawVoid(points) {
+            const ctx = canvas.getContext('2d');
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
             }
+            ctx.closePath();
+            ctx.fillStyle = 'black';
+            ctx.fill();
         }
 
-        function showText() {
-            let i = 0;
-            setInterval(() => {
-                overlayEl.style.opacity = 1;
-                overlayEl.textContent = WORDS[i % WORDS.length];
-                i++;
-                setTimeout(() => {
-                    overlayEl.style.opacity = 0;
-                }, 3500);
-            }, 4000);
-        }
-
-        promptEl.addEventListener('click', startExperience);
+        promptEl.addEventListener('click', async () => {
+            if (!modelsLoaded) {
+                await loadModels();
+            }
+            await startVideo();
+        });
     </script>
 </body>
 </html>
