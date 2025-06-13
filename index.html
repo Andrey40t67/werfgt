@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>НИЧТО</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        #container {
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        #prompt {
+            font-size: 2vw;
+            color: #444;
+            border: 1px solid #222;
+            padding: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #prompt:hover {
+            color: #666;
+            border-color: #444;
+            background: #111;
+        }
+        #mirror {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Зеркальное отражение */
+            display: none;
+            z-index: 1;
+        }
+        #overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 10vw;
+            font-weight: bold;
+            color: #fff;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%,rgba(0,0,0,0.9) 100%);
+            text-shadow: 0 0 20px #000, 0 0 30px #000;
+            opacity: 0;
+            transition: opacity 5s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <div id="prompt">ПОСМОТРИ НА ЭТУ ХУЙНЮ</div>
+    </div>
+
+    <video id="mirror" autoplay playsinline></video>
+    <div id="overlay"></div>
+
+    <script>
+        const promptEl = document.getElementById('prompt');
+        const mirrorEl = document.getElementById('mirror');
+        const overlayEl = document.getElementById('overlay');
+        const containerEl = document.getElementById('container');
+
+        const WORDS = ["НИЧТО", "ПАРАША", "СКУЧНО", "ГОВНО", "ЭТО ТЫ?", "СМОТРИ"];
+
+        async function startExperience() {
+            try {
+                // Запрос на доступ к камере
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Убираем промпт и показываем зеркало
+                containerEl.style.display = 'none';
+                mirrorEl.style.display = 'block';
+                mirrorEl.srcObject = stream;
+
+                // Запускаем шепот
+                speak();
+
+                // Показываем текст
+                showText();
+
+            } catch (err) {
+                // Если пользователь отказал
+                promptEl.textContent = "ТЫ БОИШЬСЯ. И ПРАВИЛЬНО.";
+            }
+        }
+        
+        function speak() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance();
+                utterance.lang = 'ru-RU';
+                utterance.rate = 0.4; // Медленно
+                utterance.pitch = 0.2; // Низко
+                utterance.volume = 0.7; // Не слишком громко, как шепот
+                
+                setInterval(() => {
+                    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+                    utterance.text = word;
+                    window.speechSynthesis.speak(utterance);
+                }, 4000); // Каждые 4 секунды
+            }
+        }
+
+        function showText() {
+            let i = 0;
+            setInterval(() => {
+                overlayEl.style.opacity = 1;
+                overlayEl.textContent = WORDS[i % WORDS.length];
+                i++;
+                setTimeout(() => {
+                    overlayEl.style.opacity = 0;
+                }, 3500);
+            }, 4000);
+        }
+
+        promptEl.addEventListener('click', startExperience);
+    </script>
+</body>
+</html>
